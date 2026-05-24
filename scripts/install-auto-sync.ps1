@@ -1,25 +1,38 @@
 $ErrorActionPreference = "Stop"
 
-if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    throw "Git is not available on PATH. Install Git for Windows, then rerun this script."
+$gitCommand = Get-Command git -ErrorAction SilentlyContinue
+
+if (-not $gitCommand) {
+    $knownGitPath = "C:\Program Files\Git\cmd\git.exe"
+
+    if (Test-Path $knownGitPath) {
+        $gitCommand = Get-Item $knownGitPath
+    }
 }
+
+if (-not $gitCommand) {
+    throw "Git is not available. Install Git for Windows, then rerun this script."
+}
+
+$git = if ($gitCommand.Source) { $gitCommand.Source } else { $gitCommand.FullName }
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $gitDir = Join-Path $repoRoot ".git"
+$repoPath = $repoRoot.Path
 
 if (-not (Test-Path $gitDir)) {
-    git -C $repoRoot init
+    & $git -c "safe.directory=$repoPath" -C $repoPath init
 }
 
-git -C $repoRoot config core.hooksPath .githooks
+& $git -c "safe.directory=$repoPath" -C $repoPath config core.hooksPath .githooks
 
 $remoteUrl = "https://github.com/aagaag/symcon_bellaria.git"
-$hasOrigin = git -C $repoRoot remote | Where-Object { $_ -eq "origin" }
+$hasOrigin = & $git -c "safe.directory=$repoPath" -C $repoPath remote | Where-Object { $_ -eq "origin" }
 
 if ($hasOrigin) {
-    git -C $repoRoot remote set-url origin $remoteUrl
+    & $git -c "safe.directory=$repoPath" -C $repoPath remote set-url origin $remoteUrl
 } else {
-    git -C $repoRoot remote add origin $remoteUrl
+    & $git -c "safe.directory=$repoPath" -C $repoPath remote add origin $remoteUrl
 }
 
 Write-Host "Auto-sync hook installed. Commits will push to $remoteUrl."
